@@ -1,0 +1,16 @@
+{
+  "name": "mailroom-clef",
+  "version": "0.1.0",
+  "description": "Local-first email triage with Clef decisions and optional Codex review",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server.mjs",
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.mjs",
+    "queue": "node --disable-warning=ExperimentalWarning cli.mjs queue",
+    "release:check": "node scripts/release-check.mjs",
+    "hooks:install": "git config core.hooksPath .githooks"
+  }
+}

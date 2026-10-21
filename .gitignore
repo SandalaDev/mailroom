@@ -1,0 +1,55 @@
+# Default-deny publication allowlist. New source files must be added deliberately.
+/*
+!/.gitignore
+!/.gitattributes
+!/package.json
+!/README.md
+!/LICENSE
+!/SECURITY.md
+!/CONTRIBUTING.md
+!/CODEX-RUNBOOK.md
+!/cli.mjs
+!/core.mjs
+!/demo.mjs
+!/providers.mjs
+!/server.mjs
+!/store.mjs
+!/Start Mailroom.cmd
+!/Start Mailroom.ps1
+!/public/
+/public/*
+!/public/app.js
+!/public/index.html
+!/public/style.css
+!/test/
+/test/*
+!/test/mailroom.test.mjs
+!/test/release-check.test.mjs
+!/scripts/
+/scripts/*
+!/scripts/release-check.mjs
+!/scripts/ci-template.yml
+!/.githooks/
+/.githooks/*
+!/.githooks/pre-commit
+
+# Defense in depth. Ignore runtime data and credentials even if moved into source.
+**/data/
+**/work/
+**/outputs/
+**/node_modules/
+**/.env*
+**/.dev.vars*
+**/*.sqlite*
+**/*.db*
+**/*.dpapi
+**/*.log
+**/*.zip
+**/*.tar*
+**/*.jpg
+**/*.jpeg
+**/*.png
+**/credentials*.json
+**/client_secret*.json
+**/*-test-input.json
+**/*-test-results.json
