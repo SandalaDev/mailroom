@@ -49,6 +49,8 @@ Initial ingestion covers the last seven days; subsequent runs use Gmail history.
 
 See [SECURITY.md](SECURITY.md) for limitations and safe contribution practices.
 
+Brand and UI tokens: see [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md).
+
 ## Optional Codex workflow
 
 This repository does not install Codex schedules. A connected Gmail account in Codex can be used for assisted review, but the standalone background process cannot borrow that account's authorization.

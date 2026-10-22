@@ -53,7 +53,7 @@ export function createApp({store=new Store(),providers,port=4317}={}) {
         }
         return send(res,404,{error:'Unknown operation.'});
       }
-      const assets={'/':['index.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/style.css':['style.css','text/css; charset=utf-8']};
+      const assets={'/':['index.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/style.css':['style.css','text/css; charset=utf-8'],'/tokens.css':['tokens.css','text/css; charset=utf-8']};
       const asset=assets[url.pathname];
       if(req.method!=='GET'||!asset)return send(res,404,{error:'Not found.'});
       let contents=readFileSync(join(import.meta.dirname,'public',asset[0]),'utf8');

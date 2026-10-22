@@ -8,6 +8,7 @@
 !/SECURITY.md
 !/CONTRIBUTING.md
 !/CODEX-RUNBOOK.md
+!/DESIGN-SYSTEM.md
 !/cli.mjs
 !/core.mjs
 !/demo.mjs
@@ -21,6 +22,10 @@
 !/public/app.js
 !/public/index.html
 !/public/style.css
+!/public/tokens.css
+!/brand/
+/brand/*
+!/brand/*.svg
 !/test/
 /test/*
 !/test/mailroom.test.mjs
@@ -28,6 +33,7 @@
 !/scripts/
 /scripts/*
 !/scripts/release-check.mjs
+!/scripts/brand.mjs
 !/scripts/ci-template.yml
 !/.githooks/
 /.githooks/*

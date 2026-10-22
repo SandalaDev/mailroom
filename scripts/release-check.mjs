@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url';
 export const allowedPaths=new Set([
   '.gitignore','.gitattributes','package.json','README.md','LICENSE','SECURITY.md','CONTRIBUTING.md','CODEX-RUNBOOK.md',
   'cli.mjs','core.mjs','demo.mjs','providers.mjs','server.mjs','store.mjs','Start Mailroom.cmd','Start Mailroom.ps1',
-  'public/app.js','public/index.html','public/style.css','test/mailroom.test.mjs','test/release-check.test.mjs',
-  'scripts/release-check.mjs','scripts/ci-template.yml','.githooks/pre-commit'
+  'public/app.js','public/index.html','public/style.css','public/tokens.css','DESIGN-SYSTEM.md','brand/mark.svg','brand/logo.svg','brand/logo-reversed.svg','brand/app-icon.svg','test/mailroom.test.mjs','test/release-check.test.mjs',
+  'scripts/release-check.mjs','scripts/brand.mjs','scripts/ci-template.yml','.githooks/pre-commit'
 ]);
 
 export function inspectFile(path,buffer,mode='100644') {
