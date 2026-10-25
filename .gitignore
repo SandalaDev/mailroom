@@ -11,6 +11,9 @@
 !/DESIGN-SYSTEM.md
 !/cli.mjs
 !/core.mjs
+!/cleanup.mjs
+!/usage.mjs
+!/subscriptions.mjs
 !/demo.mjs
 !/providers.mjs
 !/server.mjs
@@ -23,12 +26,15 @@
 !/public/index.html
 !/public/style.css
 !/public/tokens.css
+!/public/ui.js
 !/brand/
 /brand/*
 !/brand/*.svg
 !/test/
 /test/*
 !/test/mailroom.test.mjs
+!/test/cleanup.test.mjs
+!/test/scan-usage.test.mjs
 !/test/release-check.test.mjs
 !/scripts/
 /scripts/*

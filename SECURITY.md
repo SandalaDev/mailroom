@@ -19,7 +19,7 @@ The loopback server validates Host, Origin and a per-process request key, and ex
 
 Email, HTML, and model outputs are untrusted. Mailroom renders email as text, does not fetch remote email images, validates fixed model outputs, and uses retention guards. These measures reduce risk; they do not prove resistance to all prompt injection or classification errors. No email-authored instruction can authorize a tool call, policy change, reply or deletion.
 
-The standalone Gmail OAuth scope is read-only. Optional Codex tools can have broader permissions; that workflow must independently enforce its allowed actions. A ledger receipt is not an atomic transaction with Gmail and is not proof of OS notification delivery.
+The standalone Gmail OAuth scope is read-only by default. Cleanup optionally requests gmail.modify, which grants broader mailbox capabilities. The app exposes only message-level archive, Trash and restore mutations, gated by Organize mode, explicit selections, expiring single-use confirmation tokens, and a fresh provider-state check. Scheduled scans never mutate Gmail. Human review can override a recommendation only through a separately acknowledged review; moving mail still requires confirmation. No permanent-delete or send endpoint is implemented. Optional Codex tools can have broader permissions; that workflow must independently enforce its allowed actions. A ledger receipt is not an atomic transaction with Gmail and is not proof of OS notification delivery.
 
 ## Report a vulnerability
 

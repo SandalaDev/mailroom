@@ -32,7 +32,7 @@ fs.writeFileSync(out+'/app-icon.svg',svg('0 0 512 512',`<rect width="512" height
 // Inline the lockup and favicon into the app shell.
 const html=join(root,'public','index.html');
 {
-  const inline=`<svg class="logo" viewBox="0 0 ${right+28} 396" aria-hidden="true">${mark('currentColor',FACET)}${wm('currentColor')}</svg>`;
+  const inline=`<svg class="logo" viewBox="0 0 ${right+28} 396" aria-hidden="true">${mark('currentColor',FACET).replace(`fill="${FACET}"`,'class="facet"')}${wm('currentColor')}</svg>`;
   const icon=fs.readFileSync(out+'/app-icon.svg','utf8').trim();
   const uri='data:image/svg+xml,'+encodeURIComponent(icon).replace(/'/g,'%27');
   let h=fs.readFileSync(html,'utf8');
