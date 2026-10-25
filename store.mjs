@@ -1,3 +1,4 @@
+import { ensureSubscriptionTables, trackSubscription } from './subscriptions.mjs';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -15,6 +16,7 @@ export class Store {
       CREATE TABLE IF NOT EXISTS runs (id INTEGER PRIMARY KEY AUTOINCREMENT,started_at TEXT NOT NULL,finished_at TEXT,ok INTEGER,processed INTEGER NOT NULL DEFAULT 0,input_tokens INTEGER NOT NULL DEFAULT 0,error TEXT);
       CREATE TABLE IF NOT EXISTS waiting (thread_id TEXT PRIMARY KEY,message_id TEXT NOT NULL,due_at TEXT NOT NULL,started_at TEXT NOT NULL,resolved_at TEXT);
       CREATE INDEX IF NOT EXISTS messages_status ON messages(status);`);
+    ensureSubscriptionTables(this);
     if (!this.get('policy')) this.set('policy', DEFAULT_POLICY);
   }
   get(key) { const row=this.db.prepare('SELECT value FROM settings WHERE key=?').get(key); return row ? JSON.parse(row.value) : null; }
@@ -24,6 +26,7 @@ export class Store {
     const r=this.db.prepare('INSERT OR IGNORE INTO messages(id,thread_id,source,envelope) VALUES (?,?,?,?)').run(message.id,message.threadId,source,JSON.stringify(message));
     if(r.changes) {
       this.event(message.id,'received',{source});
+      trackSubscription(this,message,source);
       if(source==='gmail') {
         const w=this.db.prepare('SELECT * FROM waiting WHERE thread_id=? AND resolved_at IS NULL').get(message.threadId);
         if(w && message.receivedAt>w.started_at) {this.db.prepare('UPDATE waiting SET resolved_at=? WHERE thread_id=?').run(new Date().toISOString(),message.threadId);this.event(message.id,'reply_received',{});}
@@ -62,12 +65,12 @@ export class Store {
     this.event(id,'follow_up_set',{dueAt:due.toISOString()});
   }
   waiting() {return this.db.prepare('SELECT * FROM waiting WHERE resolved_at IS NULL ORDER BY due_at').all().map(w=>({...w,overdue:Date.parse(w.due_at)<=Date.now(),subject:this.row(w.message_id)?.envelope.subject||'',source:this.row(w.message_id)?.source}));}
-  auditSample(limit=20) { return this.db.prepare("SELECT id FROM messages WHERE source='gmail' AND status='classified' AND json_extract(decision,'$.destination') IN ('archive','holding','digest') ORDER BY RANDOM() LIMIT ?").all(limit).map(r=>{const row=this.row(r.id);return {id:row.id,threadId:row.thread_id,subject:row.envelope.subject,destination:row.decision.destination,revision:this.revision(row),source:'gmail'};}); }
+  auditSample(limit=20) { return this.db.prepare("SELECT id FROM messages WHERE source='gmail' AND status='classified' AND COALESCE(json_extract(envelope,'$.cleanupStatus'),'') NOT IN ('trashed','archived') AND json_extract(decision,'$.destination') IN ('archive','holding','digest') ORDER BY RANDOM() LIMIT ?").all(limit).map(r=>{const row=this.row(r.id);return {id:row.id,threadId:row.thread_id,subject:row.envelope.subject,destination:row.decision.destination,revision:this.revision(row),source:'gmail'};}); }
   queue() {
     const policy=this.get('policy');
     const pending=this.db.prepare(`SELECT m.* FROM messages m WHERE source='gmail' AND status='classified'
       AND NOT EXISTS (SELECT 1 FROM actions a WHERE a.message_id=m.id AND a.revision=CAST(COALESCE(m.policy_version,0) AS TEXT)||':'||m.classified_at AND a.kind IN ('notified','archived'))
-      ORDER BY CASE json_extract(decision,'$.destination') WHEN 'needs-you' THEN 0 WHEN 'review' THEN 1 ELSE 2 END, classified_at ASC`).all().map(r=>this.unpack(r));
+      ORDER BY CASE json_extract(decision,'$.destination') WHEN 'needs-you' THEN 0 WHEN 'review' THEN 1 ELSE 2 END, classified_at ASC`).all().map(r=>this.unpack(r)).filter(r=>!r.envelope.labels?.includes('TRASH')&&!['trashed','archived'].includes(r.envelope.cleanupStatus));
     return pending.map(r=>({id:r.id,threadId:r.thread_id,revision:this.revision(r),policyVersion:r.policy_version,currentPolicyVersion:policy.version,stalePolicy:r.policy_version!==policy.version,sender:r.envelope.sender,subject:r.envelope.subject,
       // Security-related message bodies and codes must never enter queue previews.
       preview:r.envelope.securityHint||r.decision?.category==='security'?'Security message: inspect in Gmail.':r.envelope.snippet,

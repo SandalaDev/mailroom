@@ -4,7 +4,15 @@ const store=new Store();
 try {
   const command=process.argv[2]||'health';
   let output;
-  if(command==='queue') {const queue=store.queue();output={mode:store.get('policy').mode,maxFullReads:store.get('policy').maxCodexReads,total:queue.length,remaining:Math.max(0,queue.length-200),items:queue.slice(0,200)};}
+  if(command==='operator'){
+    const base='http://127.0.0.1:'+Number(process.env.TRIAGE_PORT||4317);
+    const html=await (await fetch(base)).text();const key=html.match(/name="triage-key" content="([^"]+)"/)?.[1];if(!key)throw new Error('Open the local app server first.');
+    const operation=process.argv[3]||'report';const paths={report:'operator/report',scan:'cleanup/scan',pause:'cleanup/pause',review:'cleanup/review',preview:'cleanup/preview',apply:'cleanup/apply','subscription-ack':'subscriptions/ack'};
+    let path=paths[operation];if(operation==='message')path='operator/message?id='+encodeURIComponent(process.argv[4]||'');if(!path)throw new Error('Use operator report, message ID, scan, pause, review, preview, apply or subscription-ack.');
+    const data=['report','message'].includes(operation)?undefined:JSON.parse(readFileSync(0,'utf8')||'{}');
+    const response=await fetch(base+'/api/'+path,{method:data===undefined?'GET':'POST',headers:{'x-triage-key':key,...(data===undefined?{}:{'Content-Type':'application/json'})},...(data===undefined?{}:{body:JSON.stringify(data)})});output=await response.json();if(!response.ok)throw new Error(output.error||'Operator request failed.');
+  }
+  else if(command==='queue') {const queue=store.queue();output={mode:store.get('policy').mode,maxFullReads:store.get('policy').maxCodexReads,total:queue.length,remaining:Math.max(0,queue.length-200),items:queue.slice(0,200)};}
   else if(command==='health') {
     const s=store.stats();const stale=!s.lastRun?.finished_at||Date.now()-Date.parse(s.lastRun.finished_at)>15*60000;
     output={...s,account:store.get('gmail_account'),stale,setupRequired:!s.lastRun,notice:s.lastRun?'A quiet inbox does not prove health. Inspect stale or failed runs.':'Connections have not yet completed a run.'};

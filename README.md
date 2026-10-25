@@ -4,7 +4,7 @@ Local-first email triage using Cloudflare's Clef decision model, with optional C
 
 **Prototype · Observe mode by default · Windows credential storage**
 
-Mailroom proposes where emails belong, records why a decision needs review, and keeps an audit trail. It does not send email, move mail to Trash, or permanently delete messages. Its Gmail authorization is read-only.
+Mailroom proposes where emails belong, records why a decision needs review, and keeps an audit trail. It never sends email or permanently deletes messages. Gmail authorization is read-only by default; optional cleanup permission enables separately confirmed archive, Trash, and restore actions in Organize mode.
 
 ## How it works
 
@@ -33,9 +33,36 @@ In Cloudflare Workers AI, open **Use REST API**, create an account-scoped Worker
 
 ### Gmail
 
-Enable Gmail API in your own Google Cloud project, configure the Google Auth Platform consent screen, and create a **Desktop app** OAuth client. If using test mode, add your own email as a test user. Select the downloaded client JSON in Mailroom and complete Google's consent flow. The app requests only `gmail.readonly`.
+Enable Gmail API in your own Google Cloud project, configure the Google Auth Platform consent screen, and create a **Desktop app** OAuth client. If using test mode, add your own email as a test user. Select the downloaded client JSON in Mailroom and complete Google's consent flow. The default connection requests `gmail.readonly`. To apply cleanup actions, explicitly select **Allow reviewed cleanup** and reconnect; this requests `gmail.modify`. Google grants broader capabilities with that scope, but the app implements only confirmed archive, Trash, and restore operations. The permission shown by the app reflects the scope Google actually granted.
 
 Initial ingestion covers the last seven days; subsequent runs use Gmail history. Expired history triggers a documented seven-day catch-up, not an unlimited mailbox recovery. OAuth testing restrictions and organization policies may require reconnection or additional configuration.
+
+## Intelligent cleanup
+
+Open **Cleanup** to scan historical mail, separately from the seven-day inbox sync. Save an age threshold, minimum size, and either all received mail (including Spam) or Spam only. A scan continues across Gmail pages automatically, with a default review limit of 1,000 messages and model budget of 10,000 neurons per run. **Pause** checkpoints the current page; **Resume scan** continues remaining IDs without repeating completed classifications. The daily app model budget also applies. Set minimum age to 0 to scan any age; a positive value includes every older message, with no maximum lookback. **Start a fresh scan** restarts pagination while preserving resolved choices. Classifications may incur Cloudflare charges.
+
+Recommendations are **Keep**, **Archive**, **Review**, or **Delete candidate**, with reasons and approximate message sizes. Important senders, starred mail, important records, local corrections, attachments, conversation context and active projects are guarded. Age alone never authorizes deletion. Inspect a message and any attachments in Gmail; you can save your own cleanup decision after confirming your review. That records a proposal and does not move mail.
+
+Select individual messages, review the exact selection, and explicitly confirm the action. Mailbox changes require cleanup permission and Organize mode. Keep dismisses proposals locally without changing Gmail. Archive removes Inbox and Spam labels while preserving unrelated labels and unread status. Delete moves individual messages to Trash; it does not permanently delete them. **Resolved / history** offers separately confirmed restoration from Trash when a valid post-action snapshot is available. Restore removes Trash; it does not recreate original Inbox placement. Changed messages, conversations, rules or local corrections invalidate prior approvals. Ambiguous network outcomes are shown for manual reconciliation in Gmail, never automatically retried.
+
+**Archiving frees no space. Spam and Trash still count toward storage.** Gmail normally permanently deletes Trash after 30 days; recover before then or manage permanent deletion yourself in Gmail. Size totals are estimates of candidate messages, not a live quota reading or immediate reclaimed space. See [Google's deletion guide](https://support.google.com/mail/answer/7401?hl=en) and [storage guide](https://support.google.com/mail/answer/9312312?hl=en). Gmail's Spam folder normally clears after 30 days, so choose a short age such as 7 days for Spam-only scans; search all received mail for years of accumulated unwanted messages.
+
+Periodic reviews are off by default. Choose a daily, weekly, or 30-day review and optionally a minimum matching-message backlog. Each scheduled review runs through pages within the configured review and model limits; it never moves mail. Pending reviews appear in the Cleanup badge while the server and computer are running. There is no separate notification service. Resolved candidates are suppressed in later scans. Cleanup records and action receipts remain in the local, unencrypted database.
+
+## Model usage and subscriptions
+
+A usage meter appears on every screen. The selected Workers Paid plan has a $5/month base fee, separate from Workers AI usage. Both Workers plans include 10,000 neurons per UTC day; paid overage is $0.011 per thousand neurons. Clef is $0.24/million input tokens (21,818 neurons/million); Clef Flash is $0.038/million (3,455 neurons/million), with no output-token charge. Rates were checked on 25 October 2026 against [Cloudflare pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/).
+
+The ledger records connection tests, normal classification and cleanup calls, including reported input usage from invalid model responses. Neurons and costs are estimates; calls without usage retain conservative budget reservations. Historical cleanup token usage was not logged and cannot be reconstructed. The meter shows this app's share of the included daily allowance, not account-wide remaining quota or a verified invoice. Other workloads share the provider allocation. The plan label is user-selected, not read from billing. Usage details let you set a daily app budget. No OpenAI API connection is added; reviews in the chat use the existing Codex workflow.
+
+Cleanup supports filtering by sender, paged results, and selecting up to 50 visible messages for a reviewed action. The local operator bridge lets this chat inspect reports and control scans through the running app. It uses a per-process session key and never exports provider credentials:
+
+    node cli.mjs operator report
+    node cli.mjs operator message MESSAGE_ID
+
+Operator scan, pause, review, preview, apply and subscription-ack commands accept structured JSON on stdin. Mailbox changes still require Organize mode and explicit reviewed confirmation.
+
+New trial and renewal emails are detected locally and placed in **Subscriptions**. Exact full dates are candidates, never trusted without checking the source; ambiguous or missing dates stay for review. The chosen reminder offsets are 3 days and 1 day before, in Africa/Lusaka. A separately configured Codex heartbeat uses the existing Google Calendar connector, checks duplicates, and records confirmed event IDs. Review-first is the default, adjustable on Subscriptions. This code does not independently connect to Google Calendar or silently create events. Local scheduled checks need the computer, desktop app, and local server running; already-created Calendar reminders are delivered by Google Calendar.
 
 ## Privacy boundaries
 
@@ -48,6 +75,8 @@ Initial ingestion covers the last seven days; subsequent runs use Gmail history.
 - The project has no telemetry or analytics.
 
 See [SECURITY.md](SECURITY.md) for limitations and safe contribution practices.
+
+Brand and UI tokens: see [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md).
 
 ## Optional Codex workflow
 

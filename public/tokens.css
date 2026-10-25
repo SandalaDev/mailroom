@@ -1,0 +1,73 @@
+/* abemail tokens. See DESIGN-SYSTEM.md.
+   Layout: Linear-style chrome (sidebar on the base layer, content in one inset panel),
+   Stripe-style semantics (tinted status badges, right-side detail drawers). */
+:root{
+  /* Neutrals carry a faint indigo bias so they sit with the accent */
+  --bg:#f5f5f8;--surface:#ffffff;--raised:#ffffff;--surface-2:#fafafc;--sunken:#efeff4;
+  --hover:#5b5bd60d;--press:#5b5bd61a;
+  --line:#e7e7ee;--line-strong:#d6d6e1;
+  --text:#14141c;--text-2:#5c5d6e;--text-3:#8b8c9c;
+  --accent:#5b5bd6;--accent-hover:#4c4cc8;--accent-text:#ffffff;--accent-tint:#5b5bd61f;--accent-ring:#5b5bd659;
+
+  /* Semantic status (separate from the accent) */
+  --urgent:#e5484d;--urgent-tint:#e5484d1a;--urgent-text:#c4282e;
+  --warning:#f0a020;--warning-tint:#f0a0201f;--warning-text:#9a5b00;
+  --info:#0b8fd8;--info-tint:#0b8fd81a;--info-text:#0a6aa3;
+  --positive:#2f9e6b;--positive-tint:#2f9e6b1a;--positive-text:#1f7a50;
+  --neutral:#8b8c9c;--neutral-tint:#8b8c9c1f;--neutral-text:#5c5d6e;
+
+  --shadow-1:0 1px 2px #14141c0d,0 0 0 1px #14141c0a;
+  --shadow-2:0 4px 12px -2px #14141c14,0 1px 3px #14141c0f;
+  --shadow-3:0 24px 64px -12px #14141c38,0 8px 20px -8px #14141c1f;
+  --scrim:#14141c40;
+  --facet:#c9c9c9;
+
+  --font:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif;
+  --font-display:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif;
+  --mono:"Cascadia Code","Cascadia Mono",Consolas,ui-monospace,monospace;
+  --fs-xs:11.5px;--fs-s:12.5px;--fs-m:13.5px;--fs-l:15px;--fs-xl:20px;--fs-2xl:28px;
+
+  --r-s:5px;--r:7px;--r-l:10px;--r-xl:14px;
+
+  /* Motion */
+  --ease-out:cubic-bezier(.16,1,.3,1);
+  --ease-in-out:cubic-bezier(.65,0,.35,1);
+  --ease-spring:linear(0,.009,.035 2.1%,.141 4.4%,.723 12.9%,.938 16.7%,1.017 19.4%,1.067,1.099 24.3%,1.108 26%,1.099,1.077 30.2%,1.041 35%,1.015 38.5%,.996 43.4%,.991 48%,.997 59.5%,1.001 70.8%,1);
+  --t-micro:120ms;--t-s:200ms;--t-m:340ms;--t-l:520ms;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c0c10;--surface:#131318;--raised:#24242d;--surface-2:#17171d;--sunken:#0f0f14;
+  --hover:#ffffff0a;--press:#ffffff14;
+  --line:#23232c;--line-strong:#30303b;
+  --text:#ececf1;--text-2:#a3a3b2;--text-3:#6f6f7e;
+  --accent:#7b7bf0;--accent-hover:#8c8cf5;--accent-text:#ffffff;--accent-tint:#7b7bf026;--accent-ring:#7b7bf073;
+  --urgent:#ff6369;--urgent-tint:#ff636924;--urgent-text:#ff8f93;
+  --warning:#ffb224;--warning-tint:#ffb22421;--warning-text:#ffca6b;
+  --info:#3fb0f0;--info-tint:#3fb0f021;--info-text:#7cc8f5;
+  --positive:#3dd68c;--positive-tint:#3dd68c1f;--positive-text:#6ee7a9;
+  --neutral:#7e7e8e;--neutral-tint:#7e7e8e26;--neutral-text:#a3a3b2;
+  --shadow-1:0 0 0 1px #ffffff0d;
+  --shadow-2:0 4px 16px -2px #00000066,0 0 0 1px #ffffff0f;
+  --shadow-3:0 24px 64px -12px #000000b3,0 0 0 1px #ffffff14;
+  --scrim:#00000099;--facet:#8a8a96;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0c0c10;--surface:#131318;--raised:#24242d;--surface-2:#17171d;--sunken:#0f0f14;
+  --hover:#ffffff0a;--press:#ffffff14;
+  --line:#23232c;--line-strong:#30303b;
+  --text:#ececf1;--text-2:#a3a3b2;--text-3:#6f6f7e;
+  --accent:#7b7bf0;--accent-hover:#8c8cf5;--accent-text:#ffffff;--accent-tint:#7b7bf026;--accent-ring:#7b7bf073;
+  --urgent:#ff6369;--urgent-tint:#ff636924;--urgent-text:#ff8f93;
+  --warning:#ffb224;--warning-tint:#ffb22421;--warning-text:#ffca6b;
+  --info:#3fb0f0;--info-tint:#3fb0f021;--info-text:#7cc8f5;
+  --positive:#3dd68c;--positive-tint:#3dd68c1f;--positive-text:#6ee7a9;
+  --neutral:#7e7e8e;--neutral-tint:#7e7e8e26;--neutral-text:#a3a3b2;
+  --shadow-1:0 0 0 1px #ffffff0d;
+  --shadow-2:0 4px 16px -2px #00000066,0 0 0 1px #ffffff0f;
+  --shadow-3:0 24px 64px -12px #000000b3,0 0 0 1px #ffffff14;
+  --scrim:#00000099;--facet:#8a8a96;
+  color-scheme:dark;
+}
+@media (prefers-reduced-motion:reduce){:root{--t-micro:0ms;--t-s:0ms;--t-m:0ms;--t-l:0ms}}

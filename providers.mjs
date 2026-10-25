@@ -2,7 +2,11 @@ import { readFileSync, writeFileSync, existsSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
+import { Usage } from './usage.mjs';
 import { questions, parseMessage, modelState, validateAnswers, decide, ruleDecision } from './core.mjs';
+
+export const GMAIL_READONLY='https://www.googleapis.com/auth/gmail.readonly';
+export const GMAIL_MODIFY='https://www.googleapis.com/auth/gmail.modify';
 
 export class SecretStore {
   constructor(dir) { this.file=join(dir,'credentials.dpapi'); this.cache=null; }
@@ -29,24 +33,25 @@ export async function requestJson(url,init={}) {
 }
 
 export class Providers {
-  constructor(store,secrets,{request=requestJson,port=4317}={}) { this.store=store;this.secrets=secrets;this.request=request;this.port=port;this.oauth=null;this.refreshing=null; }
-  connectionStatus() { const s=this.secrets.get(); return {gmail:!!s.google?.refresh_token,cloudflare:!!(s.cloudflare?.accountId&&s.cloudflare?.token),model:s.cloudflare?.model||'clef',email:s.google?.email||null}; }
+  constructor(store,secrets,{request=requestJson,port=4317}={}) { this.store=store;this.usage=store.usage ||= new Usage(store);this.secrets=secrets;this.request=request;this.port=port;this.oauth=null;this.refreshing=null; }
+  connectionStatus() { const s=this.secrets.get(); return {gmail:!!s.google?.refresh_token,gmailModify:(s.google?.scope||'').split(' ').includes(GMAIL_MODIFY),cloudflare:!!(s.cloudflare?.accountId&&s.cloudflare?.token),model:s.cloudflare?.model||'clef',email:s.google?.email||null}; }
   async saveCloudflare(input) {
     if(!/^[a-f0-9]{32}$/i.test(input.accountId||'') || typeof input.token!=='string' || input.token.length<10 || input.token.length>300) throw new Error('Enter a valid Cloudflare account ID and Workers AI token.');
     if(!['clef','clef-flash'].includes(input.model)) throw new Error('Choose a supported Clef model.');
     const cf={accountId:input.accountId,token:input.token,model:input.model};
     // Test only synthetic content before saving credentials or exposing any real email.
-    const result=await this.classify({id:'connection-test',sender:'example@example.test',to:'user@example.test',subject:'Weekly example newsletter',body:'A fictional newsletter with no request or deadline.',receivedAt:new Date().toISOString(),hasAttachment:false,incomplete:false},[],this.store.get('policy'),cf);
+    const result=await this.classify({id:'connection-test',sender:'example@example.test',to:'user@example.test',subject:'Weekly example newsletter',body:'A fictional newsletter with no request or deadline.',receivedAt:new Date().toISOString(),hasAttachment:false,incomplete:false},[],this.store.get('policy'),cf,{purpose:'connection-test'});
     this.secrets.save({...this.secrets.get(),cloudflare:cf});
     this.store.event(null,'cloudflare_connected',{model:cf.model,inputTokens:result.inputTokens});
     return {connected:true,model:cf.model};
   }
-  oauthStart(credentials) {
+  oauthStart(credentials,{cleanup=false}={}) {
     const installed=credentials?.installed;
     if(!installed || typeof installed.client_id!=='string' || !installed.client_id.endsWith('.apps.googleusercontent.com') || typeof installed.client_secret!=='string') throw new Error('Choose the Google OAuth JSON for a Desktop app client.');
     const state=randomBytes(32).toString('base64url'), verifier=randomBytes(48).toString('base64url');
-    this.oauth={state,verifier,client_id:installed.client_id,client_secret:installed.client_secret,expires:Date.now()+600000};
-    const query=new URLSearchParams({client_id:installed.client_id,redirect_uri:`http://127.0.0.1:${this.port}/oauth/callback`,response_type:'code',scope:'https://www.googleapis.com/auth/gmail.readonly',access_type:'offline',prompt:'consent',state,code_challenge:createHash('sha256').update(verifier).digest('base64url'),code_challenge_method:'S256'});
+    const scope=cleanup===true?GMAIL_MODIFY:GMAIL_READONLY;
+    this.oauth={state,verifier,scope,client_id:installed.client_id,client_secret:installed.client_secret,expires:Date.now()+600000};
+    const query=new URLSearchParams({client_id:installed.client_id,redirect_uri:`http://127.0.0.1:${this.port}/oauth/callback`,response_type:'code',scope,access_type:'offline',prompt:'consent',state,code_challenge:createHash('sha256').update(verifier).digest('base64url'),code_challenge_method:'S256'});
     return 'https://accounts.google.com/o/oauth2/v2/auth?'+query;
   }
   async oauthFinish(params) {
@@ -61,9 +66,9 @@ export class Providers {
     const old=this.secrets.get();
     const existingAccount=old.google?.email||this.store.get('gmail_account');
     if(existingAccount && existingAccount!==profile.emailAddress) throw new Error('This queue belongs to another Gmail account. Use a separate data folder for another account.');
-    this.secrets.save({...old,google:{client_id:pending.client_id,client_secret:pending.client_secret,refresh_token:token.refresh_token,access_token:token.access_token,expires_at:Date.now()+token.expires_in*1000,email:profile.emailAddress}});
+    this.secrets.save({...old,google:{client_id:pending.client_id,client_secret:pending.client_secret,refresh_token:token.refresh_token,access_token:token.access_token,expires_at:Date.now()+token.expires_in*1000,email:profile.emailAddress,scope:token.scope||pending.scope}});
     this.store.set('gmail_account',profile.emailAddress);
-    this.store.event(null,'gmail_connected',{scope:'readonly'});
+    this.store.event(null,'gmail_connected',{scope:(token.scope||pending.scope)===GMAIL_MODIFY?'modify':'readonly'});
   }
   async accessToken() {
     const g=this.secrets.get().google;
@@ -80,6 +85,21 @@ export class Providers {
   async gmail(path,params={}) {
     const token=await this.accessToken();
     return this.request('https://gmail.googleapis.com/gmail/v1/users/me/'+path+'?'+new URLSearchParams(params),{headers:{Authorization:`Bearer ${token}`}});
+  }
+  async cleanupAction(id,action) {
+    if(!this.connectionStatus().gmailModify)throw new Error('Gmail cleanup permission is required.');
+    if(!['archive','trash','restore'].includes(action))throw new Error('Unsupported cleanup action.');
+    const token=await this.accessToken();
+    const operation={archive:'modify',trash:'trash',restore:'untrash'}[action];
+    const result=await this.request('https://gmail.googleapis.com/gmail/v1/users/me/messages/'+encodeURIComponent(id)+'/'+operation,{
+      method:'POST',headers:{Authorization:`Bearer ${token}`,...(action==='archive'?{'Content-Type':'application/json'}:{})},
+      ...(action==='archive'?{body:JSON.stringify({removeLabelIds:['INBOX','SPAM']})}:{})
+    });
+    if(result.id!==id||!Array.isArray(result.labelIds))throw new Error('Gmail did not confirm the requested change.');
+    if(action==='trash'&&!result.labelIds.includes('TRASH'))throw new Error('Gmail did not confirm Trash.');
+    if(action==='restore'&&result.labelIds.includes('TRASH'))throw new Error('Gmail did not confirm restore.');
+    if(action==='archive'&&result.labelIds.some(x=>['INBOX','SPAM'].includes(x)))throw new Error('Gmail did not confirm archive.');
+    return result;
   }
   async ingest(id) {
     if(this.store.row(id)) return;
@@ -124,10 +144,16 @@ export class Providers {
     if(!selected.length || others.length>selected.length || selected.some(m=>m.incomplete||m.hasAttachment||m.body.length>1500)) message.incomplete=true;
     return selected.map(m=>({sender:m.sender,subject:m.subject,body:m.body.slice(0,1500),receivedAt:m.receivedAt}));
   }
-  async classify(message,context,policy,cf=this.secrets.get().cloudflare) {
+  usageState(){const cf=this.secrets.get().cloudflare;return this.usage.state(cf?.accountId||'',cf?.model||'clef');}
+  async classify(message,context,policy,cf=this.secrets.get().cloudflare,meta={}) {
     if(!cf?.token) throw new Error('Connect Cloudflare first.');
-    const raw=await this.request(`https://api.cloudflare.com/client/v4/accounts/${cf.accountId}/ai/run/@cf/cloudflare/${cf.model}`,{method:'POST',headers:{Authorization:`Bearer ${cf.token}`,'Content-Type':'application/json'},body:JSON.stringify({model:cf.model,state:modelState(message,context,policy),questions:questions()})});
-    return validateAnswers(raw);
+    const payload={model:cf.model,state:modelState(message,context,policy),questions:questions()};
+    const call=this.usage.begin({account:cf.accountId,model:cf.model,purpose:meta.purpose||'triage',runId:meta.runId,runBudget:meta.runBudget,payload});
+    let raw;
+    try {
+      raw=await this.request(`https://api.cloudflare.com/client/v4/accounts/${cf.accountId}/ai/run/@cf/cloudflare/${cf.model}`,{method:'POST',headers:{Authorization:`Bearer ${cf.token}`,'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const result=validateAnswers(raw);this.usage.finish(call,raw);return result;
+    } catch(e){this.usage.finish(call,raw,e);throw e;}
   }
 }
 
@@ -153,7 +179,7 @@ export class Runner {
             decision=decide(m,result,policy);
           }
           this.store.classified(m.id,decision,policy.version);processed++;
-        } catch { failed++;this.store.failed(m.id); }
+        } catch(e) { failed++;this.store.failed(m.id);if(e.code==='USAGE_LIMIT')break; }
       }
       const error=failed?`${failed} message(s) could not be classified and will retry.`:null;
       this.store.db.prepare('UPDATE runs SET finished_at=?,ok=?,processed=?,input_tokens=?,error=? WHERE id=?').run(new Date().toISOString(),failed?0:1,processed,tokens,error,id);
